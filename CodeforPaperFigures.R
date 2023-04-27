@@ -1,6 +1,6 @@
 ### Code for stemFinder manuscript figures
 
-# updated 4/24/23 K.Noller
+# updated 4/27/23 K.Noller
 
 #Setup
 library(ggplot2)
@@ -334,9 +334,11 @@ s1c <- ggplot(df_all[df_all$UMI == 1 & df_all$method %in% c('stemFinder','GeneSe
 stat.test <- df_all[df_all$UMI == 1 & df_all$method %in% c('stemFinder','GeneSetScore') & df_all$genelist %in% c('Full_Regev','Full_Regev_Plus_G1','G1','G2M','S'),] %>% pairwise_t_test(spear_all ~ method, paired = T, p.adjust.method = 'bonferroni')
 
   #S1D: box plot, performance of stemFinder vs. gene set score 
-
-##
-##
+      ###uses same results data frame as above, Fig S1C
+s1d_ss <- ggplot(df_all[df_all$UMI == 1 & df_all$method %in% c('stemFinder','GeneSetScore') & df_all$genelist == 'Full_Regev',], aes(x = spear_all, y = method)) + geom_boxplot(aes(group = method, fill = method)) + geom_point(shape=1) + ggtitle("Single-cell Spearman correlation with ground truth potency") + xlab("Single-cell Spearman Correlation") + ylab("Method") + scale_fill_discrete(name = 'Method', label = c('Gene Set Score','stemFinder')) + theme_clean() + theme(plot.title=element_text(size=12))
+s1d_sp <- ggplot(df_all[df_all$UMI == 1 & df_all$method %in% c('stemFinder','GeneSetScore') & df_all$genelist == 'Full_Regev',], aes(x = spear_pheno, y = method)) + geom_boxplot(aes(group = method, fill = method)) + geom_point(shape=1) + ggtitle("Phenotypic Spearman correlation with ground truth potency") + xlab("Phenotypic Spearman Correlation") + ylab("Method") + scale_fill_discrete(name = 'Method', label = c('Gene Set Score','stemFinder')) + theme_clean() + theme(plot.title=element_text(size=12))
+s1d_auc <- ggplot(df_all[df_all$UMI == 1 & df_all$method %in% c('stemFinder','GeneSetScore') & df_all$genelist == 'Full_Regev',], aes(x = auc, y = method)) + geom_boxplot(aes(group = method, fill = method)) + geom_point(shape=1) + ggtitle("Discrimination Accuracy") + xlab("AUC") + ylab("Method") + scale_fill_discrete(name = 'Method', label = c('Gene Set Score','stemFinder')) + theme_clean() + theme(plot.title=element_text(size=12))
+s1d_pctrec <- ggplot(df_all[df_all$UMI == 1 & df_all$method %in% c('stemFinder','GeneSetScore') & df_all$genelist == 'Full_Regev',], aes(x = pct.recov, y = method)) + geom_boxplot(aes(group = method, fill = method)) + geom_point(shape=1) + ggtitle("Percent recovery of highly potent cells") + xlab("Percentage Recovery") + ylab("Method") + scale_fill_discrete(name = 'Method', label = c('Gene Set Score','stemFinder')) + theme_clean() + theme(plot.title=element_text(size=12))
 
 #####################################################
 
