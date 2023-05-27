@@ -1,12 +1,15 @@
 ### Code for stemFinder manuscript figures
 
-# updated 4/27/23 K.Noller
+# updated 5/27/23 K.Noller
 
 #Setup
 library(ggplot2)
 library(ggthemes)
 library(Seurat)
 library(RColorBrewer)
+library(forcats)
+library(stringr)
+library(stringi)
 setwd("~/Dropbox (CahanLab)/Kathleen.Noller/Stochasticity/Paper&Presentations/ManuscriptFigures_300dpiTIFF/")
 
 #Example code for saving as TIFF 300dpi figures
@@ -238,7 +241,9 @@ fig7c <- FeaturePlot(adata, features = 'stemFinder_invert') + ggtitle("Inverted 
 
     #7D: box plot, sF vs number lineages
       ## Run code in LineageTracing_sF_CoSpar.R to get lin_counts
-fig7d <- ggplot(lin_counts[,c(2,4)], aes(y = as.numeric(Min_sFinvert_undiff), x = as.numeric(Num_lineages))) + geom_boxplot(aes(group = Num_lineages)) + guides(fill = 'none', color = 'none') + geom_point(aes(color = as.numeric(Min_sFinvert_undiff))) + xlab("Number of downstream lineages") + ylab("Minimum inverted stemFinder score") + ggtitle("Inverted stemFinder vs. number of lineages")
+fig7d_sF <- ggplot(lin_counts[,c(2,4)], aes(y = as.numeric(Min_sFinvert_undiff), x = as.numeric(Num_lineages))) + geom_boxplot(aes(group = Num_lineages)) + guides(fill = 'none', color = 'none') + geom_point(aes(color = as.numeric(Min_sFinvert_undiff))) + xlab("Number of downstream lineages") + ylab("Minimum inverted stemFinder score") + ggtitle("Inverted stemFinder vs. number of lineages")
+fig7d_cyto <- ggplot(lin_counts[,c(2,8)], aes(y = as.numeric(Min_Cytoinvert_undiff), x = as.numeric(Num_lineages))) + geom_boxplot(aes(group = Num_lineages)) + guides(fill = 'none', color = 'none') + geom_point(aes(color = as.numeric(Min_Cytoinvert_undiff))) + xlab("Number of downstream lineages") + ylab("Minimum inverted CytoTRACE score") + ggtitle("Inverted CytoTRACE vs. number of lineages")
+fig7d_ccat <- ggplot(lin_counts[,c(2,6)], aes(y = as.numeric(Min_CCATinvert_undiff), x = as.numeric(Num_lineages))) + geom_boxplot(aes(group = Num_lineages)) + guides(fill = 'none', color = 'none') + geom_point(aes(color = as.numeric(Min_CCATinvert_undiff))) + xlab("Number of downstream lineages") + ylab("Minimum inverted CCAT score") + ggtitle("Inverted CCAT vs. number of lineages")
 
     #7E-F: UMAP marker gene expression
 fig7e <- FeaturePlot(adata, features = 'Ngp') 
@@ -248,92 +253,14 @@ fig7f <- FeaturePlot(adata, features = 'Mmp8')
 
 # SUPPLEMENTAL FIGURES
 
+#Fig S1
 
-# Fig S1: CC gene expression correlates with GT potency
-
-  #S1A-B: GSEA of TFs ranked by stochasticity of expression -- NOT READY YET **********
-
-    ## A: murine BMMC 10X
-load("../../ValidationandGeneLists/mmTFs.rda")
-adata = readRDS("../../ValidationandGeneLists/bmmc_mouse_fromcytotrace_10X_ginicytoandccat.rds")
-
-        #compute gene expression stochasticity of each TF for each ground truth potency-defined cluster
-markers = mmTFs[mmTFs %in% rownames(adata)]
-idents = unique(adata$Ground_truth) 
-expDat = as.matrix(adata@assays$RNA@scale.data)
-sampTab = adata@meta.data
-
-gini_agg = data.frame("cluster" = rep(idents, length(markers)), "gini_sum" = rep(NA, length(idents)*length(markers)), "TF" = rep("", length(idents)*length(markers)))
-for (i in idents){
-  gini_agg[gini_agg$cluster ==i,]$TF = markers
-  neigh = rownames(sampTab[sampTab$Ground_truth == i,]) 
-  exp = expDat[markers,neigh] > 0 
-  gini_allsingles = c()
-
-  for (c in neigh){
-    gini_singles = data.frame("cell" = rep(c, length(markers)), "gini" = rep(NA, length(markers)), "TF" = markers)
-    exp_match = exp == exp[,c] 
-    n_match = apply(exp_match, 1, sum) - 1
-    p_g = n_match/(length(neigh)-1) 
-    gini_g = p_g * (1 - p_g) 
-    gini_singles$gini = gini_g
-    gini_allsingles = rbind(gini_allsingles, gini_singles)
-  }
-  
-  for (m in markers){
-    gini_agg[gini_agg$cluster == i & gini_agg$TF == m,]$gini_sum = sum(gini_allsingles[gini_allsingles$TF == m,]$gini)
-  }
-}
-        #rank each TF by Pearson correlation of GT potency and gene expression stochasticity
-pearsons_agg <- data.frame("Pearson" = rep(NA, length(markers)), "TF" = markers)
-for (t in unique(gini_agg$TF)){
-  gini_sub = gini_agg[gini_agg$TF == t,]
-  pearsons_agg[pearsons_agg$TF == t,]$Pearson = cor.test(gini_sub$cluster, gini_sub$gini_sum, method = 'pearson')$estimate
-}
-    ## recall: here, gini_sum is high if high stochasticity of expression, aka low GT potency score
-    ## multiplied all correlations by -1 because neg correlation is desired for key TFs
-pearsons_agg$Pearson = -(pearsons_agg$Pearson)
-save(pearsons_agg, file = '../../ValidationandGeneLists/pearsons_agg_tfs_bmmc10x.rda')
-
-        #run GSEA on TFs ranked by Pearson correlation
-m_df_c5 = msigdbr(species = "Mus musculus", category = c('C5')) %>%   #GO, KEGG
-  dplyr::select(gs_name, gene_symbol)
-m_df_h = msigdbr(species = "Mus musculus", category = c('H')) %>%   #hallmark
-  dplyr::select(gs_name, gene_symbol)
-m_df_c8 = msigdbr(species = "Mus musculus", category = c('C8')) %>%   #hallmark
-  dplyr::select(gs_name, gene_symbol)
-m_df = rbind(m_df_c5, m_df_h, m_df_c8)
-genelist_rf = data.frame("Pearson" = pearsons_agg$Pearson, row.names = pearsons_agg$TF)
-genelist_rf = na.omit(genelist_rf)
-genelist_rf2 <- genelist_rf %>% mutate(rank = rank(Pearson,  ties.method = "random")) %>%
-  arrange(desc(rank)) # handle ties in ranked list
-genelist_vect <- as.vector(genelist_rf2$rank) #must be vector for GSEA() function
-names(genelist_vect) = rownames(genelist_rf2)
-gsea_res = GSEA(genelist_vect, TERM2GENE = m_df, pvalueCutoff=0.05, scoreType = 'pos', verbose = TRUE, nPermSimple=10000) #increased nPermSimple based on error msg suggestion for p value calculation
-        #dot plot of top 20 terms ranked by NES
-dot_df = as.data.frame(gsea_res[gsea_res$p.adjust < 0.05,])
-dot_df$absNES = abs(dot_df$NES)
-dot_df = arrange(dot_df, desc(absNES),p.adjust) 
-dot_df$type = "upregulated"
-dot_df$type[dot_df$NES < 0] = "downregulated"
-dot_df$Description = stri_replace_all_fixed(dot_df$Description, "_", " ") #adds space
-
-s1a <- ggplot(dot_df[dot_df$type == 'upregulated',][1:20,], aes(x = NES, y = fct_reorder(Description, NES))) + 
-  geom_point(aes(size=2, color = p.adjust)) +
-  theme_bw(base_size = 14) +
-  scale_colour_gradient(limits=c(0, 0.05), low="red") +
-  ylab(NULL) +
-  ggtitle("GSEA, Murine BMMC") +
-  scale_y_discrete(labels = function(y) str_wrap(y, width=45)) +
-  theme(axis.text.y = element_text(size=11)) +
-  guides(size="none") 
-
-  #S1C: box plot, single-cell Spearman for stochastic vs. mean CC expression (UMI only)
+  #S1A: box plot, single-cell Spearman for stochastic vs. mean CC expression (UMI only)
 load("../../PerformanceResults/df_performanceNov1822_noregress_genelisttestandcomp_newgini_withgeneset.rda")
 s1c <- ggplot(df_all[df_all$UMI == 1 & df_all$method %in% c('stemFinder','GeneSetScore') & df_all$genelist %in% c('Full_Regev','Full_Regev_Plus_G1','G1','G2M','S'),], aes(x = method, y = spear_all)) + geom_point(position = position_jitterdodge(jitter.width=0.1, dodge.width = 0.5), aes(group = genelist, color = genelist)) + geom_boxplot(aes(group = method), alpha = 0) + theme_clean() + coord_flip() + labs(color = 'Gene list') + xlab("Method") + ylab("Single-Cell Spearman Correlation") + ggtitle("Correlation of gene set score vs. expression stochasticity with ground truth potency") + theme(axis.text.x = element_text(size=12), axis.text.y = element_text(size=12), axis.title.x = element_text(size=14), axis.title.y = element_text(size=14)) + scale_color_discrete(labels = c('S + G2M','S + G2M + G1','G1 only','G2M only','S only'))
 stat.test <- df_all[df_all$UMI == 1 & df_all$method %in% c('stemFinder','GeneSetScore') & df_all$genelist %in% c('Full_Regev','Full_Regev_Plus_G1','G1','G2M','S'),] %>% pairwise_t_test(spear_all ~ method, paired = T, p.adjust.method = 'bonferroni')
 
-  #S1D: box plot, performance of stemFinder vs. gene set score 
+  #S1B: box plot, performance of stemFinder vs. gene set score 
       ###uses same results data frame as above, Fig S1C
 s1d_ss <- ggplot(df_all[df_all$UMI == 1 & df_all$method %in% c('stemFinder','GeneSetScore') & df_all$genelist == 'Full_Regev',], aes(x = spear_all, y = method)) + geom_boxplot(aes(group = method, fill = method)) + geom_point(shape=1) + ggtitle("Single-cell Spearman correlation with ground truth potency") + xlab("Single-cell Spearman Correlation") + ylab("Method") + scale_fill_discrete(name = 'Method', label = c('Gene Set Score','stemFinder')) + theme_clean() + theme(plot.title=element_text(size=12))
 s1d_sp <- ggplot(df_all[df_all$UMI == 1 & df_all$method %in% c('stemFinder','GeneSetScore') & df_all$genelist == 'Full_Regev',], aes(x = spear_pheno, y = method)) + geom_boxplot(aes(group = method, fill = method)) + geom_point(shape=1) + ggtitle("Phenotypic Spearman correlation with ground truth potency") + xlab("Phenotypic Spearman Correlation") + ylab("Method") + scale_fill_discrete(name = 'Method', label = c('Gene Set Score','stemFinder')) + theme_clean() + theme(plot.title=element_text(size=12))
@@ -342,41 +269,37 @@ s1d_pctrec <- ggplot(df_all[df_all$UMI == 1 & df_all$method %in% c('stemFinder',
 
 #####################################################
 
-  #Supplemental Fig 2: performance in non-UMI data
-
-#####################################################
-
-  #Supplemental Fig 3: robustness heat maps
+  #Supplemental Fig 2: robustness heat maps
       ## order of all figures: single-cell Spearman, phenotypic Spearman, AUC, pct.recov
 
 #S3A-D: K robustness
 load("../../PerformanceResults/df_robustness_k_041123.rda")
-s3a <- ggplot(df_robust_k[df_robust_k$UMI == 1,], aes(x = kratio, y = dataset_forplot, fill = neg_deviation_spearss)) + geom_tile() + scale_fill_viridis(discrete = F, name = 'Deviation in Performance') + ggtitle("Robustness to changes in K - Single-cell Spearman Correlation") + ylab("Validation dataset") + xlab("Deviation from Single-cell Spearman Correlation at Kideal") 
-s3b <- ggplot(df_robust_k[df_robust_k$UMI == 1,], aes(x = kratio, y = dataset_forplot, fill = neg_deviation_spearp)) + geom_tile() + scale_fill_viridis(discrete = F, name = 'Deviation in Performance') + ggtitle("Robustness to changes in K - Phenotypic Spearman Correlation") + ylab("Validation dataset") + xlab("Deviation from Phenotypic Spearman Correlation at Kideal") 
-s3c <- ggplot(df_robust_k[df_robust_k$UMI == 1,], aes(x = kratio, y = dataset_forplot, fill = neg_deviation_auc)) + geom_tile() + scale_fill_viridis(discrete = F, name = 'Deviation in Performance') + ggtitle("Robustness to changes in K - AUC") + ylab("Validation dataset") + xlab("Deviation from AUC at Kideal") 
-s3d <- ggplot(df_robust_k[df_robust_k$UMI == 1,], aes(x = kratio, y = dataset_forplot, fill = neg_deviation_pctrecov)) + geom_tile() + scale_fill_viridis(discrete = F, name = 'Deviation in Performance') + ggtitle("Robustness to changes in K - Percent recovery") + ylab("Validation dataset") + xlab("Deviation from Percent Recovery at Kideal") 
+s3a <- ggplot(df_robust_k[df_robust_k$UMI == 1,], aes(x = kratio, y = dataset_forplot, fill = neg_deviation_spearss)) + geom_tile() + scale_fill_gradient2(low="red", mid="white", high="blue", midpoint = 0, breaks = seq(-2, 2, 0.5), limits=c(-2, 2), name = 'Deviation in Performance') + ggtitle("Robustness to changes in K - Single-cell Spearman Correlation") + ylab("Validation dataset") + xlab("K / Kideal")
+s3b <- ggplot(df_robust_k[df_robust_k$UMI == 1,], aes(x = kratio, y = dataset_forplot, fill = neg_deviation_spearp)) + geom_tile() + scale_fill_gradient2(low="red", mid="white", high="blue", midpoint = 0, breaks = seq(-2, 2, 0.5), limits=c(-2, 2), name = 'Deviation in Performance') + ggtitle("Robustness to changes in K - Phenotypic Spearman Correlation") + ylab("Validation dataset") + xlab("K / Kideal")
+s3c <- ggplot(df_robust_k[df_robust_k$UMI == 1,], aes(x = kratio, y = dataset_forplot, fill = neg_deviation_auc)) + geom_tile() + scale_fill_gradient2(low="red", mid="white", high="blue", midpoint = 0, breaks = seq(-1, 1, 0.5), limits=c(-1, 1), name = 'Deviation in Performance') + ggtitle("Robustness to changes in K - Discrimination Accuracy") + ylab("Validation dataset") + xlab("K / Kideal")
+s3d <- ggplot(df_robust_k[df_robust_k$UMI == 1,], aes(x = kratio, y = dataset_forplot, fill = neg_deviation_pctrecov)) + geom_tile() + scale_fill_gradient2(low="red", mid="white", high="blue", midpoint = 0, breaks = seq(-100, 100, 50), limits=c(-100, 100), name = 'Deviation in Performance') + ggtitle("Robustness to changes in K - Percent Recovery") + ylab("Validation dataset") + xlab("K / Kideal")
 
 #S3E-H: Cell cycle gene list (GO, Kegg, Regev)
 load("../../PerformanceResults/df_robustness_genelist_04202023.rda")
-s3e <- ggplot(df_robust_genelist[df_robust_genelist$UMI == 1 & df_robust_genelist$genelist %in% c('Full_Regev','KEGG','GeneOntology'),], aes(x = genelist, y = dataset_forplot, fill = neg_deviation_spearss)) + geom_tile() + scale_fill_viridis(discrete = F, name = 'Deviation in Performance') + ggtitle("Robustness to changes in cell cycle gene list - Single-cell Spearman Correlation") + ylab("Validation dataset") + xlab("Deviation from Single-cell Spearman Correlation") 
-s3f <- ggplot(df_robust_genelist[df_robust_genelist$UMI == 1 & df_robust_genelist$genelist %in% c('Full_Regev','KEGG','GeneOntology'),], aes(x = genelist, y = dataset_forplot, fill = neg_deviation_spearp)) + geom_tile() + scale_fill_viridis(discrete = F, name = 'Deviation in Performance') + ggtitle("Robustness to changes in cell cycle gene list - Phenotypic Spearman Correlation") + ylab("Validation dataset") + xlab("Deviation from Phenotypic Spearman Correlation") 
-s3g <- ggplot(df_robust_genelist[df_robust_genelist$UMI == 1 & df_robust_genelist$genelist %in% c('Full_Regev','KEGG','GeneOntology'),], aes(x = genelist, y = dataset_forplot, fill = neg_deviation_auc)) + geom_tile() + scale_fill_viridis(discrete = F, name = 'Deviation in Performance') + ggtitle("Robustness to changes in cell cycle gene list - AUC") + ylab("Validation dataset") + xlab("Deviation from AUC") 
-s3h <- ggplot(df_robust_genelist[df_robust_genelist$UMI == 1 & df_robust_genelist$genelist %in% c('Full_Regev','KEGG','GeneOntology'),], aes(x = genelist, y = dataset_forplot, fill = neg_deviation_pctrecov)) + geom_tile() + scale_fill_viridis(discrete = F, name = 'Deviation in Performance') + ggtitle("Robustness to changes in cell cycle gene list - Percent recovery") + ylab("Validation dataset") + xlab("Deviation from Percent Recovery") 
+s3e <- ggplot(df_robust_genelist[df_robust_genelist$UMI == 1 & df_robust_genelist$genelist %in% c('Full_Regev','KEGG','GeneOntology'),], aes(x = genelist, y = dataset_forplot, fill = neg_deviation_spearss)) + geom_tile() + ggtitle("Robustness to changes in cell cycle gene list - Single-cell Spearman Correlation") + ylab("Validation dataset") + xlab("Gene List") + scale_fill_gradient2(low="red", mid="white", high="blue", midpoint = 0, breaks = seq(-2, 2, 0.5), limits=c(-2, 2), name = 'Deviation in Performance') + theme_bw()
+s3f <- ggplot(df_robust_genelist[df_robust_genelist$UMI == 1 & df_robust_genelist$genelist %in% c('Full_Regev','KEGG','GeneOntology'),], aes(x = genelist, y = dataset_forplot, fill = neg_deviation_spearp)) + geom_tile() + ggtitle("Robustness to changes in cell cycle gene list - Phenotypic Spearman Correlation") + ylab("Validation dataset") + xlab("Gene List") + scale_fill_gradient2(low="red", mid="white", high="blue", midpoint = 0, breaks = seq(-2, 2, 0.5), limits=c(-2, 2), name = 'Deviation in Performance') + theme_bw()
+s3g <- ggplot(df_robust_genelist[df_robust_genelist$UMI == 1 & df_robust_genelist$genelist %in% c('Full_Regev','KEGG','GeneOntology'),], aes(x = genelist, y = dataset_forplot, fill = neg_deviation_auc)) + geom_tile() + ggtitle("Robustness to changes in cell cycle gene list - Discrimination Accuracy") + ylab("Validation dataset") + xlab("Gene List") + scale_fill_gradient2(low="red", mid="white", high="blue", midpoint = 0, breaks = seq(-1, 1, 0.5), limits=c(-1, 1), name = 'Deviation in Performance') + theme_bw()
+s3h <- ggplot(df_robust_genelist[df_robust_genelist$UMI == 1 & df_robust_genelist$genelist %in% c('Full_Regev','KEGG','GeneOntology'),], aes(x = genelist, y = dataset_forplot, fill = neg_deviation_pctrecov)) + geom_tile() + ggtitle("Robustness to changes in cell cycle gene list - Percent Recovery") + ylab("Validation dataset") + xlab("Gene List") + scale_fill_gradient2(low="red", mid="white", high="blue", midpoint = 0, breaks = seq(-100, 100, 50), limits=c(-100, 100), name = 'Deviation in Performance') + theme_bw()
 
 #S3I-L: Proportional downsampling of all cells
 load("../../PerformanceResults/df_robustness_downsample_allandpotent_042423.rda")
 df_robust_ds_all <- df_robust_ds[df_robust_ds$ds_type == 'All cell types',]
-s3i <- ggplot(df_robust_ds_all[df_robust_ds_all$UMI == 1,], aes(x = ds_ratio, y = dataset_forplot, fill = neg_deviation_spearss)) + geom_tile() + scale_fill_viridis(discrete = F, name = 'Deviation in Performance') + ggtitle("Robustness to proportional downsampling - Single-cell Spearman Correlation") + ylab("Validation dataset") + xlab("Deviation from Single-cell Spearman Correlation") 
-s3j <- ggplot(df_robust_ds_all[df_robust_ds_all$UMI == 1,], aes(x = ds_ratio, y = dataset_forplot, fill = neg_deviation_spearp)) + geom_tile() + scale_fill_viridis(discrete = F, name = 'Deviation in Performance') + ggtitle("Robustness to proportional downsampling - Phenotypic Spearman Correlation") + ylab("Validation dataset") + xlab("Deviation from Phenotypic Spearman Correlation") 
-s3k <- ggplot(df_robust_ds_all[df_robust_ds_all$UMI == 1,], aes(x = ds_ratio, y = dataset_forplot, fill = neg_deviation_auc)) + geom_tile() + scale_fill_viridis(discrete = F, name = 'Deviation in Performance') + ggtitle("Robustness to proportional downsampling - AUC") + ylab("Validation dataset") + xlab("Deviation from AUC") 
-s3l <- ggplot(df_robust_ds_all[df_robust_ds_all$UMI == 1,], aes(x = ds_ratio, y = dataset_forplot, fill = neg_deviation_pctrecov)) + geom_tile() + scale_fill_viridis(discrete = F, name = 'Deviation in Performance') + ggtitle("Robustness to proportional downsampling - Percent recovery") + ylab("Validation dataset") + xlab("Deviation from Percent Recovery") 
+s3i <- ggplot(df_robust_ds_all[df_robust_ds_all$UMI == 1,], aes(x = ds_ratio, y = dataset_forplot, fill = neg_deviation_spearss)) + geom_tile() + ggtitle("Robustness to proportional downsampling - Single-cell Spearman Correlation") + ylab("Validation dataset") + xlab("Downsampling ratio") + scale_fill_gradient2(low="red", mid="white", high="blue", midpoint = 0, breaks = seq(-2, 2, .5), limits=c(-2, 2), name = 'Deviation in Performance') + theme_bw()
+s3j <- ggplot(df_robust_ds_all[df_robust_ds_all$UMI == 1,], aes(x = ds_ratio, y = dataset_forplot, fill = neg_deviation_spearp)) + geom_tile() + ggtitle("Robustness to proportional downsampling - Phenotypic Spearman Correlation") + ylab("Validation dataset") + xlab("Downsampling ratio") + scale_fill_gradient2(low="red", mid="white", high="blue", midpoint = 0, breaks = seq(-2, 2, .5), limits=c(-2, 2), name = 'Deviation in Performance') + theme_bw()
+s3k <- ggplot(df_robust_ds_all[df_robust_ds_all$UMI == 1,], aes(x = ds_ratio, y = dataset_forplot, fill = neg_deviation_auc)) + geom_tile() + ggtitle("Robustness to proportional downsampling - Discrimination Accuracy") + ylab("Validation dataset") + xlab("Downsampling ratio") + scale_fill_gradient2(low="red", mid="white", high="blue", midpoint = 0, breaks = seq(-1, 1, .5), limits=c(-1, 1), name = 'Deviation in Performance') + theme_bw()
+s3l <- ggplot(df_robust_ds_all[df_robust_ds_all$UMI == 1,], aes(x = ds_ratio, y = dataset_forplot, fill = neg_deviation_pctrecov)) + geom_tile() + ggtitle("Robustness to proportional downsampling - Percent Recovery") + ylab("Validation dataset") + xlab("Downsampling ratio") + scale_fill_gradient2(low="red", mid="white", high="blue", midpoint = 0, breaks = seq(-100, 100, 50), limits=c(-100, 100), name = 'Deviation in Performance') + theme_bw()
 
 #S3M-P: Downsampling of most potent population
 df_robust_ds_pot <- df_robust_ds[df_robust_ds$ds_type == 'Highly potent only',]
-s3m <- ggplot(df_robust_ds_pot[df_robust_ds_pot$UMI == 1,], aes(x = ds_ratio, y = dataset_forplot, fill = neg_deviation_spearss)) + geom_tile() + scale_fill_viridis(discrete = F, name = 'Deviation in Performance') + ggtitle("Robustness to downsampling of highly potent cells - Single-cell Spearman Correlation") + ylab("Validation dataset") + xlab("Deviation from Single-cell Spearman Correlation") 
-s3n <- ggplot(df_robust_ds_pot[df_robust_ds_pot$UMI == 1,], aes(x = ds_ratio, y = dataset_forplot, fill = neg_deviation_spearp)) + geom_tile() + scale_fill_viridis(discrete = F, name = 'Deviation in Performance') + ggtitle("Robustness to downsampling of highly potent cells - Phenotypic Spearman Correlation") + ylab("Validation dataset") + xlab("Deviation from Phenotypic Spearman Correlation") 
-s3o <- ggplot(df_robust_ds_pot[df_robust_ds_pot$UMI == 1,], aes(x = ds_ratio, y = dataset_forplot, fill = neg_deviation_auc)) + geom_tile() + scale_fill_viridis(discrete = F, name = 'Deviation in Performance') + ggtitle("Robustness to downsampling of highly potent cells - AUC") + ylab("Validation dataset") + xlab("Deviation from AUC") 
-s3p <- ggplot(df_robust_ds_pot[df_robust_ds_pot$UMI == 1,], aes(x = ds_ratio, y = dataset_forplot, fill = neg_deviation_pctrecov)) + geom_tile() + scale_fill_viridis(discrete = F, name = 'Deviation in Performance') + ggtitle("Robustness to downsampling of highly potent cells - Percent recovery") + ylab("Validation dataset") + xlab("Deviation from Percent Recovery") 
+s3m <- ggplot(df_robust_ds_pot[df_robust_ds_pot$UMI == 1,], aes(x = ds_ratio, y = dataset_forplot, fill = neg_deviation_spearss)) + geom_tile() + ggtitle("Robustness to downsampling of highly potent cells - Single-cell Spearman Correlation") + ylab("Validation dataset") + xlab("Downsampling ratio") + scale_fill_gradient2(low="red", mid="white", high="blue", midpoint = 0, breaks = seq(-2, 2, .5), limits=c(-2, 2), name = 'Deviation in Performance') + theme_bw()
+s3n <- ggplot(df_robust_ds_pot[df_robust_ds_pot$UMI == 1,], aes(x = ds_ratio, y = dataset_forplot, fill = neg_deviation_spearp)) + geom_tile() + ggtitle("Robustness to downsampling of highly potent cells - Phenotypic Spearman Correlation") + ylab("Validation dataset") + xlab("Downsampling ratio") + scale_fill_gradient2(low="red", mid="white", high="blue", midpoint = 0, breaks = seq(-2, 2, .5), limits=c(-2, 2), name = 'Deviation in Performance') + theme_bw()
+s3o <- ggplot(df_robust_ds_pot[df_robust_ds_pot$UMI == 1,], aes(x = ds_ratio, y = dataset_forplot, fill = neg_deviation_auc)) + geom_tile() + ggtitle("Robustness to downsampling of highly potent cells - Discrimination Accuracy") + ylab("Validation dataset") + xlab("Downsampling ratio") + scale_fill_gradient2(low="red", mid="white", high="blue", midpoint = 0, breaks = seq(-1, 1, .5), limits=c(-1, 1), name = 'Deviation in Performance') + theme_bw()
+s3p <- ggplot(df_robust_ds_pot[df_robust_ds_pot$UMI == 1,], aes(x = ds_ratio, y = dataset_forplot, fill = neg_deviation_pctrecov)) + geom_tile() + ggtitle("Robustness to downsampling of highly potent cells - Percent Recovery") + ylab("Validation dataset") + xlab("Downsampling ratio") + scale_fill_gradient2(low="red", mid="white", high="blue", midpoint = 0, breaks = seq(-100, 100, 50), limits=c(-100, 100), name = 'Deviation in Performance') + theme_bw()
 
 #S3Q-T: Regev vs. random gene list (box plot)
 s3q <- ggplot(df_robust_genelist[df_robust_genelist$UMI == 1 & df_robust_genelist$genelist %in% c('Full_Regev','Random'),], aes(x = genelist, y = spear_all_sF)) + geom_point(aes(color = dataset_forplot)) + geom_boxplot(aes(group = genelist), alpha = 0) + ggtitle("Random vs. cell cycle genes") + xlab("Validation dataset") + ylab("Single-cell Spearman Correlation") + theme_bw() + scale_color_discrete(name = 'Validation Dataset') + scale_x_discrete(labels = c('S + G2M genes','Random'))
@@ -386,11 +309,7 @@ s3t <- ggplot(df_robust_genelist[df_robust_genelist$UMI == 1 & df_robust_genelis
 
 #####################################
 
-#Supplementary figure 4: SCN to rescue non-UMI datasets --> removed from paper
-
-#####################################
-
-#Supplementary figure 5: identifying TFs in oligodendrocytes
+#Supplementary figure 4: identifying TFs in oligodendrocytes
 
 adata = readRDS("../../ValidationandGeneLists/Oligodendrocytephenotypes_C1mouse_giniandcyto.rds")
 load("../../ValidationandGeneLists/sporadtfs_oligodendro.rda") 
