@@ -104,7 +104,7 @@ automated_performance_genelists <- function(wd_string = "/home/ubuntu/data/Valid
     
     #Select other input parameters, run HVG
     k = round(sqrt(ncol(adata)))
-    pcs = pcs_all[which(filenames==f)] 
+    pcs = pcs_all[which(filenames==f)] # from elbow plots examined beforehand
     adata = FindVariableFeatures(adata, selection.method = 'vst', nfeatures = 2500)
     
     #Adjust HVG, scale, PCA, KNN and run stemFinder 
@@ -123,9 +123,9 @@ automated_performance_genelists <- function(wd_string = "/home/ubuntu/data/Valid
         adata = run_stemFinder(adata, k = k, nn = knn, thresh = 0, markers = markers)
         print("stemFinder finished running successfully!")
         
-        #if(genelist_name == 'Full_Regev' & iter == 1){ 
-        #  saveRDS(adata, file = f)
-        #}
+        if(genelist_name == 'Full_Regev' & iter == 1){ 
+          saveRDS(adata, file = f)
+        }
         
         if(!('Ground_truth' %in% colnames(adata@meta.data))){
           adata$Ground_truth = adata$Order

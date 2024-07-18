@@ -1,14 +1,14 @@
 ## Robustness testing - K input parameter to KNN 
 
 #wd_string is a string describing the location of the folder containing all query datasets and gene lists
-##validation dataset filename must contain string "mouse," "hum," "zebra," or "celeg" corresponding to its species
+##validation dataset filename must contain string "mouse," "hum," or "celeg" corresponding to its species
 ##gene lists must include S and G2M lists for each species in validation datasets
 #pcs_all is a numeric vector of the number of PCs that should be inputted to FindNeighbors(). Values are chosen based on elbow plot inflection point for each dataset
 #niter is the number of iterations to process validation data, run stemFinder and compute performance 
 
 #requires: Seurat, dplyr
 
-automated_performance_K <- function(wd_string = "~/data/ValidationandGeneLists", pcs_all = pcs_all, niter = 3){
+automated_performance_K <- function(wd_string = "~/data", pcs_all = pcs_all, niter = 3){
     
     library(Seurat)
     library(dplyr)

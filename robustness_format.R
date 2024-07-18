@@ -2,15 +2,8 @@
 
 df_robust = as.data.frame(list_all) #convert list to df
 
-# Add UMI information
-load("umiassignments.rda") 
-df_robust$UMI = NA
-for(u in names(umi)){
-  df_robust[df_robust$dataset == u,]$UMI = umi[u]
-}
-
 # Add formatted dataset names
-load("datasetnames.rda")
+load("data_names.rda")
 df_robust$dataset_forplot = NA
 for(d in 1:length(datasets_forplot)){
   df_robust[df_robust$dataset == datasets_forplot[[d]],]$dataset_forplot = names(datasets_forplot[d])

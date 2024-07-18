@@ -8,7 +8,7 @@
 
 #requires: Seurat, dplyr
 
-automated_performance_ds <- function(wd_string = "~/data/ValidationandGeneLists", pcs_all = pcs_all, niter = 3){
+automated_performance_ds <- function(wd_string = "~/data", pcs_all = pcs_all, niter = 3){
     
     library(Seurat)
     library(dplyr)
