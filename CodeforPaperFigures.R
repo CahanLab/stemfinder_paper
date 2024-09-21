@@ -1,6 +1,6 @@
 ### Code for stemFinder manuscript figures
 
-# updated 7/17/24 K.Noller
+# updated 9/21/24 K.Noller 
 
 #Setup
 library(stemFinder)
@@ -13,13 +13,16 @@ library(rstatix)
 library(ggpubr)
 library(ggrepel)
 library(ggthemes)
-library(rstatix)
+library(ragg)
 setwd("~/Dropbox (CahanLab)/Kathleen.Noller/Stochasticity/OtherCode/FiguresCode")
 
 #Example code for saving as TIFF 300dpi figures
-#tiff("test.tiff", units="in", width=6, height=5, res=300)
+#tiff("test.tiff", units="in", width=6, height=5, res=300, compression = 'lzw')
 ##insert ggplot code
 #dev.off()
+
+#or for macs: 
+#ragg::agg_tiff("test.tiff", width = 6, height = 5, res = 300, units = 'in', compression = 'lzw')
 
 # To download datasets and objects needed below from S3, type the following URL with desired filename into browser: 
 # https://cnobjects.s3.amazonaws.com/stemFinder/FiguresCode/filename.ext
@@ -104,7 +107,7 @@ Idents(rgl) <- 'seurat_clusters'
 de.genes <- FindMarkers(rgl, ident.1 = '0', only.pos = F, min.pct = 0, logfc.threshold = 0)
 de.genes$p_val_adj_fdr <- p.adjust(p = de.genes$p_val, method = 'fdr') #FDR adjustment 
 de.genes[c('S100a16','Gfap','Sparcl1','Pla2g7','Mycn','Hes6'),] #genes in heat map
-fig6k <- DoHeatmap(adata, features = c('S100a16','Gfap','Sparcl1','Pla2g7','Mycn','Hes6'), group.by = 'Phenotype', group.colors = c('pink','red','yellow','orange','green','darkgreen','black','grey','blue','darkblue','brown','darkred','purple','magenta','tan'), angle = 90, size = 3)
+fig2k <- DoHeatmap(adata, features = c('S100a16','Gfap','Sparcl1','Pla2g7','Mycn','Hes6'), group.by = 'Phenotype', group.colors = c('pink','red','yellow','orange','green','darkgreen','black','grey','blue','darkblue','brown','darkred','purple','magenta','tan'), angle = 90, size = 3)
 
 #2L: revised phenotypes
 rev.pheno <- read.csv("../../ValidationandGeneLists/DentateGyrusPhenotype_RevisedAnnotandGT.csv", header = T, row.names = 1)
@@ -152,6 +155,27 @@ fig3d = ggplot(df_all[df_all$iter == 1 & df_all$genelist == 'Full_Regev' & df_al
 load("runandmem_ubuntus3_periphblood.rda")
 fig3e = ggplot(runandmem_copy, aes(x = NumCells, y = MemoryKB)) + geom_line(aes(color = Method), size=2, alpha = 0.5) + geom_point(aes(color = Method), size=3, alpha = 0.5) + theme_clean() + ggtitle("Memory usage") + ylab("Memory (kB)") + xlab("Number of cells") + theme(axis.title.x = element_text(size=12), axis.title.y = element_text(size=12))
 fig3f = ggplot(runandmem_copy, aes(x = NumCells, y = RunTime.sec.)) + geom_line(aes(color = Method), size=2, alpha = 0.5) + geom_point(aes(color = Method), size=3, alpha = 0.5) + theme_clean() + ggtitle("Run time") + ylab("Run time (sec)") + xlab("Number of cells") + theme(axis.title.x = element_text(size=12), axis.title.y = element_text(size=12))
+
+  # clustered heat map of AUC
+hm.toplot = df_all[df_all$iter == 1 & df_all$genelist == 'Full_Regev' & df_all$method %in% c('stemFinder','CytoTRACE','CCAT'), c('auc','dataset_forplotting','method')]
+rownames(hm.toplot) = paste(hm.toplot$dataset_forplotting, hm.toplot$method, sep = '_')
+col_annots <- hm.toplot[,c('dataset_forplotting','method')]
+toplot = t(cbind(hm.toplot$auc, hm.toplot$auc))
+colnames(toplot) = rownames(hm.toplot)
+
+load("dataset_info.rda") # add info about datasets
+col_annots$ncells = NA
+col_annots$platform = NA
+col_annots$timepointorpheno = NA
+for(d in unique(dataset.info$dataset)){
+  col_annots[col_annots$dataset_forplotting == d,]$ncells = dataset.info[dataset.info$dataset == d,]$ncells 
+  col_annots[col_annots$dataset_forplotting == d,]$platform = dataset.info[dataset.info$dataset == d,]$platform 
+  col_annots[col_annots$dataset_forplotting == d,]$timepointorpheno = dataset.info[dataset.info$dataset == d,]$timepointorpheno 
+}
+col_annots$method = as.factor(col_annots$method)
+colnames(col_annots) = c('Dataset','Method','N_Cells','Platform','GroundTruth')
+ann_colors = list(Method = c(stemFinder="orange", CytoTRACE="darkgreen", CCAT = "purple"), GroundTruth = c('Timepoint' = 'green','Phenotype' = 'red'))
+fig3g = pheatmap(toplot, scale = 'none', color = colorRampPalette(c('blue','lightgrey','red'))(100), show_colnames=F, cluster_cols = T, annotation_col = col_annots, cutree_cols = 3, annotation_colors = ann_colors)
 
 ########################################
 
@@ -305,6 +329,13 @@ s1b_sp <- ggplot(df_all[df_all$method %in% c('stemFinder','GeneSetScore') & df_a
 s1b_auc <- ggplot(df_all[df_all$method %in% c('stemFinder','GeneSetScore') & df_all$genelist == 'Full_Regev',], aes(x = auc, y = method)) + geom_boxplot(aes(group = method, fill = method)) + geom_point(shape=1) + ggtitle("Discrimination Accuracy") + xlab("AUC") + ylab("Method") + scale_fill_discrete(name = 'Method', label = c('Gene Set Score','stemFinder')) + theme_clean() + theme(plot.title=element_text(size=12))
 s1b_pctrec <- ggplot(df_all[df_all$method %in% c('stemFinder','GeneSetScore') & df_all$genelist == 'Full_Regev',], aes(x = pct.recov, y = method)) + geom_boxplot(aes(group = method, fill = method)) + geom_point(shape=1) + ggtitle("Percent recovery of highly potent cells") + xlab("Percentage Recovery") + ylab("Method") + scale_fill_discrete(name = 'Method', label = c('Gene Set Score','stemFinder')) + theme_clean() + theme(plot.title=element_text(size=12))
 
+  #S1C: box plot, performance of Gini impurity vs other metrics of heterogeneity within sF
+load("../../ValidationandGeneLists/df_heterogeneity.rda")
+s1c_ss <- ggplot(df_hg, aes(x = spear_all, y = method)) + geom_boxplot(aes(group = method, fill = method)) + geom_point(shape=1) + ggtitle("Single-cell Spearman correlation with ground truth potency") + xlab("Single-cell Spearman Correlation") + ylab("Method") + theme_clean() + theme(plot.title=element_text(size=12)) + scale_fill_discrete(name = 'Method', label = c('Gini impurity','MAD','SD','Variance')) + scale_y_discrete(labels = c('Gini','MAD','SD','Variance'))
+s1c_sp <- ggplot(df_hg, aes(x = spear_pheno, y = method)) + geom_boxplot(aes(group = method, fill = method)) + geom_point(shape=1) + ggtitle("Phenotypic Spearman correlation with ground truth potency") + xlab("Phenotypic Spearman Correlation") + ylab("Method") + theme_clean() + theme(plot.title=element_text(size=12)) + scale_fill_discrete(name = 'Method', label = c('Gini impurity','MAD','SD','Variance')) + scale_y_discrete(labels = c('Gini','MAD','SD','Variance'))
+s1c_auc <- ggplot(df_hg, aes(x = auc, y = method)) + geom_boxplot(aes(group = method, fill = method)) + geom_point(shape=1) + ggtitle("Discrimination Accuracy") + xlab("Discrimination Accuracy") + ylab("Method") + theme_clean() + theme(plot.title=element_text(size=12)) + scale_fill_discrete(name = 'Method', label = c('Gini impurity','MAD','SD','Variance')) + scale_y_discrete(labels = c('Gini','MAD','SD','Variance'))
+s1c_pctrec <- ggplot(df_hg, aes(x = pct.recov, y = method)) + geom_boxplot(aes(group = method, fill = method)) + geom_point(shape=1) + ggtitle("Percent Recovery") + xlab("Percent Recovery") + ylab("Method") + theme_clean() + theme(plot.title=element_text(size=12)) + scale_fill_discrete(name = 'Method', label = c('Gini impurity','MAD','SD','Variance')) + scale_y_discrete(labels = c('Gini','MAD','SD','Variance'))
+
 #####################################################
 
   #Supplemental Fig 2: robustness heat maps
@@ -367,3 +398,4 @@ s3c_ccat <- VlnPlot(adata, features = 'ccat_invert', group.by = 'Phenotype', col
 
 #S3D: feature plot of potency scores
 s3d <- FeaturePlot(adata, features = 'stemFinder', cols = c('blue','red'))
+
